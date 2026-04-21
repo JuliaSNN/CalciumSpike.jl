@@ -1,0 +1,6 @@
+[submodule "src/lib/brick"]
+	path = src/lib/brick
+	url = https://github.com/thomasdeneux/brick
+[submodule "src/lib/spikes"]
+	path = src/lib/spikes
+	url = https://github.com/MLspike/spikes

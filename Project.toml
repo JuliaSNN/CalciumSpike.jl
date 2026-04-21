@@ -1,0 +1,10 @@
+name = "CalciumSpike"
+uuid = "62725a0d-c079-4df9-bb14-4eacc1bfbdff"
+version = "0.1.0"
+authors = ["Alessio <alessio.quaresima@pasteur.fr>"]
+
+[deps]
+MATLAB = "10e44e05-a98a-55b3-a45b-ba969058deb6"
+
+[compat]
+MATLAB = "0.9.0"

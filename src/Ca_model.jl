@@ -162,7 +162,7 @@ end
 
 Simulate a fluorescence trace from a spike train using the Deneux et al.
 2016 forward model. `interval = (t0, t1)` in seconds, `sampling_rate` in Hz.
-`params` is a NamedTuple of the form [`Ca_params`](@ref).
+`params` is a [`CaModel`](@ref) instance.
 
 Pipeline:
 1. Bin spikes onto the `dt = 1/sampling_rate` grid.
@@ -187,4 +187,23 @@ function calcium_trace(spiketimes::AbstractVector, sampling_rate::Real, interval
     return (t=t, F=F, c=c, B=B)
 end
 
-export calcium_trace, CaModel, bin_spikes, calcium_dynamics, baseline_drift, fluorescence
+"""
+    gcamp6_kernel(;τr, τd, interval) -> Vector{Float32}
+
+Generate a discretized gCaMP6s kernel of the form `g(t) = (exp(-t/τd) - exp(-t/τr))`
+normalized to unit integral. `interval` is used to determine the kernel time axis and bin width. The kernel is truncated at `kernel_length = (τr + τd) * 10` to ensure it captures the full decay while avoiding unnecessary computation of negligible tails.
+"""
+function gcamp6_kernel(;τr=100ms, τd=2s, interval, kwargs...)
+    kernel_length = (τr+τd) * 10  # Length of the kernel in ms
+    bin_width = step(interval) # kernel window in ms
+    kernel_time = Float32.(0.0:bin_width:kernel_length)
+    τr = Float32(τr)
+    τd = Float32(τd)
+    gcamp6_kernel = [(exp(-t / τd)) - exp(-t / τr) for t in kernel_time]
+    gcamp6_kernel ./= bin_width * sum(gcamp6_kernel)
+    return gcamp6_kernel
+end
+
+
+
+export calcium_trace, CaModel, bin_spikes, calcium_dynamics, baseline_drift, fluorescence, gcamp6_kernel

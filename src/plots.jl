@@ -163,6 +163,19 @@ function plot_gCamp_and_deconvolution!(layout, r, spikes, signal, dec_exp, title
     return signal
 end
 
+"""
+    plot_spike_raster!(ax, spikes, estimate=nothing) -> ax
+
+Draw spike times as arrows on `ax`. Native spikes are drawn in the default
+color; estimated spikes (if provided) are drawn in dark red at `y + 0.5`.
+
+# Arguments
+- `ax`: Makie `Axis`
+- `spikes`: ground-truth spike times (vector of vectors, one per neuron)
+- `estimate`: optional estimated spike times in the same format
+
+See also [`plot_spike_detection`](@ref).
+"""
 function plot_spike_raster!(ax, spikes, estimate=nothing)
     neurons = length(spikes)
     for n in eachindex(spikes)
@@ -190,6 +203,25 @@ function plot_spike_raster!(ax, spikes, estimate=nothing)
 end
 
 
+"""
+    plot_spike_detection(original, results; neuron_index=1, kwargs...) -> Figure
+
+Produce a four-panel diagnostic figure comparing MLSpike and deconvolution
+against ground truth for a single neuron:
+
+1. Raw fluorescence with MLSpike fit and estimated drift
+2. Spike raster (true vs. estimated)
+3. MLSpike estimated vs. true firing rate (zoomed, 50–80 s)
+4. Deconvolution vs. true firing rate (zoomed, 50–80 s)
+
+# Arguments
+- `original`: output from [`biophysical_calcium`](@ref) containing `fluo`, `spikes`, `t`
+- `results`: output from [`biophysical_calcium`](@ref) containing `gcamp.dec`, `gcamp.dec_corr`
+- `neuron_index=1`: which neuron to highlight in panels 1, 3, 4
+- `kwargs...`: forwarded to [`MLspike_estimate`](@ref)
+
+See also [`plot_comparison`](@ref), [`plot_spike_raster!`](@ref).
+"""
 function plot_spike_detection(original, results; neuron_index=1, kwargs...)
     @unpack fluo, spikes, t = original
     @unpack dec_corr, dec = results.gcamp

@@ -1,4 +1,19 @@
 
+"""
+    CaPostProcess
+
+Parameters for the ΔF/F deconvolution and smoothing pipeline.
+
+# Fields
+- `τ::Float32 = 2.0s`: calcium decay time constant used for deconvolution
+- `A::Float32 = 0.2`: ΔF/F amplitude per spike passed to [`deconvolve_df_f`](@ref)
+- `σnoise::Float32 = 0.1`: expected measurement noise standard deviation
+- `σsmooth::Float32 = 100ms`: Gaussian smoothing kernel width applied after deconvolution
+
+See also [`calcium_postprocess`](@ref), [`deconvolve_df_f`](@ref).
+"""
+CaPostProcess
+
 @kwdef struct CaPostProcess
     τ::Float32  = 2.0s
     A::Float32 = 0.2

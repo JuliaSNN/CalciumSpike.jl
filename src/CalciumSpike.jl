@@ -36,5 +36,6 @@ module CalciumSpike
     include("Ca_model.jl")
     include("post_processing.jl")
     include("model_comparison.jl")
+    include("noise_correction.jl")
 
 end # module CalciumSpike

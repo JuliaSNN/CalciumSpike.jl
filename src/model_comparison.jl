@@ -124,6 +124,29 @@ function run_comparison(params_model::CaModel, input_rate::Real, params_post::Un
         )
 end
 
+"""
+    biophysical_calcium(params_model, input_rate, params_post; sim_time=40s, sr=50Hz, β=0, N=100) -> NamedTuple
+
+Simulate a population of `N` independent Poisson neurons, generate per-neuron
+calcium traces with the Deneux et al. 2016 forward model, and optionally
+deconvolve each trace.
+
+# Arguments
+- `params_model::CaModel`: forward-model parameters
+- `input_rate`: mean firing rate in Hz
+- `params_post::CaPostProcess`: post-processing parameters (pass `nothing` to skip deconvolution)
+- `N=100`: population size
+- `β=0`: burstiness parameter for the inhomogeneous Poisson process
+
+# Returns
+NamedTuple with fields:
+- `gcamp`: `(signal, r, dec, fluo, t, dec_corr)` — per-neuron ΔF/F, time axis,
+  deconvolved traces, raw fluorescence, and per-neuron correlation with ground truth
+- `fr`: `(signal, r)` — population-averaged firing rate and time axis
+- `spikes`: spike times for all neurons
+
+See also [`run_comparison`](@ref), [`evaluate_deconvolution`](@ref).
+"""
 function biophysical_calcium(params_model::CaModel, input_rate::Real, params_post::Union{CaPostProcess, Nothing} = nothing; sim_time=40s, sr=50Hz,  β=0, N=100)
     pop = Population(N=N,SNNModels.InhomogeneousPoissonParam(r0 = input_rate; β, τ=10ms))
     model = compose(;pop, silent=true)
@@ -163,6 +186,16 @@ function biophysical_calcium(params_model::CaModel, input_rate::Real, params_pos
         )
 end
 
+"""
+    isi_beta(input_rate, β; sim_time=40s, N=100) -> Float64
+
+Return the mean inter-spike interval coefficient of variation (ISI-CV) for a
+population of `N` inhomogeneous Poisson neurons driven at `input_rate` Hz with
+burstiness parameter `β`. ISI-CV = 1 for a Poisson process; higher values
+indicate bursty firing.
+
+See also [`biophysical_calcium`](@ref), [`run_comparison`](@ref).
+"""
 function isi_beta(input_rate::Real, β::Real; sim_time=40s, N=100)
     pop = Population(N=N,SNNModels.InhomogeneousPoissonParam(r0 = input_rate; β, τ=10ms))
     model = compose(;pop, silent=true)
@@ -173,6 +206,23 @@ function isi_beta(input_rate::Real, β::Real; sim_time=40s, N=100)
 end
 
 
+"""
+    evaluate_deconvolution(spikes, deconvolution, t; kwargs...) -> Vector{Float64}
+
+Compare a deconvolved signal against the ground-truth firing rate. Computes
+Pearson correlation per neuron between each row of `deconvolution` and the
+corresponding smoothed firing rate derived from `spikes`.
+
+# Arguments
+- `spikes`: ground-truth spike times (vector of vectors, one per neuron)
+- `deconvolution`: matrix of deconvolved activity (neurons × time)
+- `t`: common time axis
+
+# Returns
+- Vector of per-neuron Pearson correlations
+
+See also [`evaluate_MLspike`](@ref), [`biophysical_calcium`](@ref).
+"""
 function evaluate_deconvolution(spikes, deconvolution, t;  kwargs...)
     fr_true, _ = firing_rate(spikes, t, interpolate=false, τ=100ms)
     return map(eachindex(deconvolution)) do i

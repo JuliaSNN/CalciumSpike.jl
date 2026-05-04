@@ -173,7 +173,7 @@ Pipeline:
 Returns a NamedTuple `(t, F, c, B)` with the time axis, fluorescence
 trace, normalized calcium, and baseline.
 """
-function calcium_trace(spiketimes::AbstractVector, sampling_rate::Real, interval::Tuple;
+function calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interval::Tuple;
                       params = Ca_params, rng = Random.GLOBAL_RNG)
     dt = 1ms  ## dt for biophysical Calcium dynamics, finer than the output sampling rate to avoid aliasing
     binned = bin_spikes(spiketimes, dt, interval)
@@ -185,6 +185,22 @@ function calcium_trace(spiketimes::AbstractVector, sampling_rate::Real, interval
     F = Itp.scale(Itp.interpolate(F, Itp.BSpline(Itp.Linear())), t)(t[1]:1/sampling_rate:t[end])
     t = t[1]:1/sampling_rate:t[end]
     return (t=t, F=F, c=c, B=B)
+end
+
+function calcium_trace(spiketimes::Vector{Vector{Float32}}, sampling_rate::Real, interval::Tuple;
+        params = Ca_params, rng = Random.GLOBAL_RNG)
+    dt = 1ms  ## dt for biophysical Calcium dynamics, finer than the output sampling rate to avoid aliasing
+    t = dt:dt:interval[end]
+    Fs = tmap(spiketimes) do spiketime
+        dt = 1ms  ## dt for biophysical Calcium dynamics, finer than the output sampling rate to avoid aliasing
+        binned = bin_spikes(spiketime, dt, interval)
+        c = calcium_dynamics(binned, dt, params.τ, params.τr)
+        B = baseline_drift(length(c), dt, params.η, params.F0; rng=rng)
+        F = fluorescence(c, B, params.A, params.g, params.σ; rng=rng)
+        F = Itp.scale(Itp.interpolate(F, Itp.BSpline(Itp.Linear())), t)(t[1]:1/sampling_rate:t[end])
+    end
+    t = t[1]:1/sampling_rate:t[end]
+    return Fs, t
 end
 
 """

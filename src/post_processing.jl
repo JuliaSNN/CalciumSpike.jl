@@ -37,10 +37,14 @@ as warmup. Baseline `F0` is the `q`-th quantile of the remaining signal.
 
 See also [`calcium_postprocess`](@ref).
 """
-function delta_f_over_f(t::AbstractVector, F::AbstractVector; heatup_time=10s)
+function delta_f_over_f(t::T, F::Vector{R}; heatup_time=10s) where {T<:AbstractVector, R<:Real}
     heatup = findall(t .> heatup_time)
     F0 = mean(F[heatup])
     return Float32.(@. (F - F0) / F0), t
+end
+
+function delta_f_over_f(t::T, Fs::Vector{Vector{R}}; heatup_time=10s) where {T<:AbstractVector, R<:Real}
+    tmap(x->delta_f_over_f(t, x; heatup_time)[1], Fs), t
 end
 
 
@@ -139,12 +143,18 @@ The time axis `r` is regularized to a uniform step before processing.
 
 See also [`deconvolve_df_f`](@ref), [`gaussian_smooth`](@ref).
 """
-function calcium_postprocess(signal::RT, r::T, params::CaPostProcess) where {T<:AbstractVector,RT<:AbstractVector}
+function calcium_postprocess(fluo::Vector{R}, r::T, params::CaPostProcess) where {T<:AbstractVector,R<:Real}
     δT = r[2] - r[1]
     r = r[1]:δT:r[end]
-    dec_exp = deconvolve_df_f(signal, 1/δT, params.τ, params.A)
+    dec_exp = deconvolve_df_f(fluo, 1/δT, params.τ, params.A)
     dec_exp = gaussian_smooth(r, dec_exp, params.σsmooth)
     return dec_exp
 end
+
+function calcium_postprocess(fluos::Vector{Vector{R}}, r::T, params::CaPostProcess) where {T<:AbstractVector,R<:Real} 
+    tmap(fluo->calcium_postprocess(fluo, r, params), fluos)
+end
+
+
 
 export calcium_postprocess, gaussian_smooth, deconvolve_df_f, delta_f_over_f, CaPostProcess

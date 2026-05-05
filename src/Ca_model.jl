@@ -59,6 +59,7 @@ CaModel
     F0::Float32 = 1.0
     η::Float32  = 0.0
     σ::Float32  = 0.0
+    dt::Float32 = 1ms
 end
 
 """
@@ -95,15 +96,15 @@ When `τr = 0` the rise is instantaneous: each spike adds 1 directly to `c`,
 recovering the Deneux et al. 2016 single-exponential normalization (one AP →
 `c = 1` at rest).
 """
-function calcium_dynamics(spikes_binned::T, dt::R, τ::R, τr::R) where {T<:AbstractVector, R<:Real}
+function calcium_dynamics(spikes_binned::T, params::CaModel) where {T<:AbstractVector}
+    @unpack τ, τr, dt = params
     n = length(spikes_binned)
-    c = zeros(Float64, n)
-    crise = zeros(Float64, n)
-    decay = exp(-dt / τ)
-    rise = τr > 0 ? exp(-dt / τr) : 0.f0
-    α = τr > 0 ? α_doubleexp(τr, τ) : 1.0
-    g = τr > 0 ? norm_doubleexp(τr, τ) : 1.0
-
+    c = zeros(Float32, n)
+    crise = zeros(Float32, n)
+    decay = exp(-dt / τ) |> Float32
+    rise = τr > 0 ? exp(-dt / τr) : 0.f0 |> Float32
+    α = τr > 0 ? α_doubleexp(τr, τ) : 1.0f0 |> Float32
+    g = τr > 0 ? norm_doubleexp(τr, τ) : 1.0f0 |> Float32
     @inbounds @simd for i in 2:n
         c[i] = c[i-1] * decay + crise[i-1]
         crise[i] = crise[i-1] * rise + spikes_binned[i-1] * α 
@@ -113,11 +114,11 @@ end
 
 function norm_doubleexp(τr, τd)
     t_p = τr * τd / (τd - τr) * log(τd / τr)
-    return 1 / (-exp(-t_p / τr) + exp(-t_p / τd))
+    return 1 / (-exp(-t_p / τr) + exp(-t_p / τd)) |> Float32
 end
 
 function α_doubleexp(τr, τd)
-    return (τd - τr) / (τd * τr)
+    return (τd - τr) / (τd * τr) |> Float32
 end
 
 """
@@ -127,12 +128,13 @@ Generate a discretized Brownian-drift baseline `B(t)` of length `n` starting
 at `F0`, with increment `η * sqrt(dt) * randn()` per step. When `η = 0` the
 baseline is constant at `F0`.
 """
-function baseline_drift(n::Int, dt::R, η::R, F0::R; rng=Random.GLOBAL_RNG) where {R<:Real}
+function baseline_drift(n::Int, params::CaModel; rng=Random.GLOBAL_RNG)
+    @unpack dt, η, F0 = params
     B = fill(float(F0), n)
     η == 0 && return B
     s = η * sqrt(dt)
     random_number = randn(rng, n)
-    @inbounds for i in 2:n
+    @turbo for i in 2:n
         B[i] = B[i-1] + s * random_number[i]
     end
     return B
@@ -146,11 +148,12 @@ Apply the MLspike observation equation
 indicator nonlinearity with baseline and additive Gaussian measurement
 noise. Reduces to linear scaling when `g = 0`.
 """
-function fluorescence(c::AbstractVector, B::AbstractVector, A::Real, g::Real, σ::Real; rng=Random.GLOBAL_RNG)
+function fluorescence(c::T, B::T, params::CaModel; rng=Random.GLOBAL_RNG) where {T<:AbstractVector}
+    @unpack A, g, σ = params
     n = length(c)
     F = similar(c)
     random_number = randn(rng, n)
-    @inbounds for i in 1:n
+    @turbo for i in 1:n
         nl = A * c[i] / (1 + g * c[i])
         F[i] = B[i] * (1 + nl) + σ * random_number[i]
     end
@@ -158,7 +161,7 @@ function fluorescence(c::AbstractVector, B::AbstractVector, A::Real, g::Real, σ
 end
 
 """
-    calcium_trace(spiketimes, sampling_rate, interval; params=Ca_params, rng)
+    calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interval; params=Ca_params, rng=Random.GLOBAL_RNG)
 
 Simulate a fluorescence trace from a spike train using the Deneux et al.
 2016 forward model. `interval = (t0, t1)` in seconds, `sampling_rate` in Hz.
@@ -173,13 +176,13 @@ Pipeline:
 Returns a NamedTuple `(t, F, c, B)` with the time axis, fluorescence
 trace, normalized calcium, and baseline.
 """
-function calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interval::Tuple;
+function calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interval;
                       params = Ca_params, rng = Random.GLOBAL_RNG)
     dt = 1ms  ## dt for biophysical Calcium dynamics, finer than the output sampling rate to avoid aliasing
     binned = bin_spikes(spiketimes, dt, interval)
-    c = calcium_dynamics(binned, dt, params.τ, params.τr)
-    B = baseline_drift(length(c), dt, params.η, params.F0; rng=rng)
-    F = fluorescence(c, B, params.A, params.g, params.σ; rng=rng)
+    c = calcium_dynamics(binned, params)
+    B = baseline_drift(length(c), params; rng=rng)
+    F = fluorescence(c, B, params; rng=rng)
     t = dt:dt:interval[end]
     c = Itp.scale(Itp.interpolate(c, Itp.BSpline(Itp.Linear())), t)(t[1]:1/sampling_rate:t[end])
     F = Itp.scale(Itp.interpolate(F, Itp.BSpline(Itp.Linear())), t)(t[1]:1/sampling_rate:t[end])
@@ -187,20 +190,35 @@ function calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interva
     return (t=t, F=F, c=c, B=B)
 end
 
-function calcium_trace(spiketimes::Vector{Vector{Float32}}, sampling_rate::Real, interval::Tuple;
+"""
+    calcium_trace(spiketimes::Vector{Vector{Float32}}, sampling_rate::Real, interval; params=Ca_params, rng=Random.GLOBAL_RNG)
+
+    Simulate a fluorescence trace from a vector of spike trains using the Deneux et al.
+    2016 forward model. `interval = (t0, t1)` in seconds, `sampling_rate` in Hz.
+`params` is a [`CaModel`](@ref) instance.
+
+Pipeline:
+1. Bin spikes onto the `dt = 1/sampling_rate` grid.
+2. Integrate normalized calcium `c(t)` (exact exponential decay).
+3. Generate baseline drift `B(t)` (Brownian, or flat if `η = 0`).
+4. Apply the saturating observation equation to obtain `F(t)`.
+
+Returns a tuple of vectors `(Fs, t)` with the fluorescence traces and time axis.
+"""
+function calcium_trace(spiketimes::Vector{Vector{Float32}}, sampling_rate::Real, interval;
         params = Ca_params, rng = Random.GLOBAL_RNG)
     dt = 1ms  ## dt for biophysical Calcium dynamics, finer than the output sampling rate to avoid aliasing
-    t = dt:dt:interval[end]
-    Fs = tmap(spiketimes) do spiketime
-        dt = 1ms  ## dt for biophysical Calcium dynamics, finer than the output sampling rate to avoid aliasing
+    t = 0:dt:interval[end]
+    tsr = t[1]:1/sampling_rate:t[end]
+    Fs = map(spiketimes) do spiketime
         binned = bin_spikes(spiketime, dt, interval)
-        c = calcium_dynamics(binned, dt, params.τ, params.τr)
-        B = baseline_drift(length(c), dt, params.η, params.F0; rng=rng)
-        F = fluorescence(c, B, params.A, params.g, params.σ; rng=rng)
-        F = Itp.scale(Itp.interpolate(F, Itp.BSpline(Itp.Linear())), t)(t[1]:1/sampling_rate:t[end])
+        c = calcium_dynamics(binned, params)
+        B = baseline_drift(length(c), params; rng=rng)
+        F = fluorescence(c, B, params; rng=rng)
+        t0 = range(t[1], stop=t[end], length=length(F)) 
+        F = Itp.scale(Itp.interpolate(F, Itp.BSpline(Itp.Linear())), t0)(tsr)
     end
-    t = t[1]:1/sampling_rate:t[end]
-    return Fs, t
+    return Fs, tsr
 end
 
 """

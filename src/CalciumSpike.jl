@@ -22,6 +22,7 @@ module CalciumSpike
     using Random
     using Statistics
     using ThreadTools
+    using LoopVectorization
     import Interpolations as Itp
     using Parameters
     using UnPack
@@ -37,5 +38,6 @@ module CalciumSpike
     include("post_processing.jl")
     include("model_comparison.jl")
     include("noise_correction.jl")
+    include("spatial_map.jl")
 
 end # module CalciumSpike

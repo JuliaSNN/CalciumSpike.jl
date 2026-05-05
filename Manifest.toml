@@ -2,7 +2,7 @@
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "e83c6973ba6bf9abe2de1eebc076b8ccbab8ef36"
+project_hash = "7730db00908447e3a06a201a96802170e7c67cf8"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -211,7 +211,7 @@ uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.18.6+0"
 
 [[deps.CalciumSpike]]
-deps = ["DrWatson", "Interpolations", "Logging", "MATLAB", "Makie", "Parameters", "Random", "Requires", "SNNModels", "Statistics", "ThreadTools"]
+deps = ["DrWatson", "Interpolations", "Logging", "LoopVectorization", "MATLAB", "Makie", "Parameters", "Random", "Requires", "SNNModels", "Statistics", "ThreadTools", "UnPack"]
 path = "."
 uuid = "62725a0d-c079-4df9-bb14-4eacc1bfbdff"
 version = "0.1.0"

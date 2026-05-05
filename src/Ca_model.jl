@@ -11,15 +11,20 @@ Reference:
     neuronal populations in vivo. *Nature Communications*, 7, 12190.
     doi:10.1038/ncomms12190
 
-Model equations (Deneux et al. 2016, eq. 8):
+Model equations (Deneux et al. 2016, eq. 8, extended with Hill nonlinearity):
 
     dc/dt = s(t) - c(t) / τ
     dB/dt = η dW(t)
-    F(t)  = B(t) * (1 + A * c(t) / (1 + g * c(t))) + σ ε(t)
+    F(t)  = B(t) * (1 + A * (c0+c)^n / (1 + g*(c0+c)^n) - A*c0^n/(1+g*c0^n)) + σ ε(t)
 
 where `c` is normalized intracellular calcium (c = 0 at rest, c = 1 after a
 single AP), `B` is the drifting baseline (Brownian), and `F` the measured
-fluorescence. The linear convolution limit is recovered for `g = 0`, `η = 0`.
+fluorescence. The parameter `c0` is the resting calcium offset (normalized
+units) and `n` is the Hill cooperativity coefficient. Setting `n = 1` and
+`c0 = 0` recovers the original Michaelis-Menten form. Setting `n > 1` and
+`c0 > 0` produces history-dependent fluorescence: early spikes (low baseline
+calcium) fall on the shallow left limb of the sigmoid, while accumulated
+calcium shifts into the steep central region, amplifying later spikes.
 """
 
 
@@ -48,10 +53,20 @@ Fields:
          `F` directly as a ΔF/F-ready ratio.
 - `η`  : baseline Brownian drift amplitude. `η = 0` gives a flat baseline.
 - `σ`  : white measurement-noise standard deviation.
+- `n`  : Hill cooperativity coefficient for the fluorescence-calcium sigmoid.
+         `n = 1` recovers Michaelis-Menten (no cooperativity, current default).
+         `n > 1` (typical GCaMP: 2–3) produces a sigmoidal F-Ca curve with
+         history-dependent spike reporting: early spikes on the shallow left
+         limb produce less ΔF than later spikes in the steep central region.
+- `c0` : resting calcium offset in normalized units (same scale as `c`).
+         Sets where on the sigmoid curve the indicator sits at rest.
+         `c0 = 0` means resting at the foot of the curve (no history effect).
+         Increasing `c0` shifts the operating point rightward into the steep
+         region. `n = 1, c0 = 0` exactly recovers the original model.
 """
 CaModel
 
-@kwdef struct CaModel 
+@kwdef struct CaModel
     τ::Float32  = 0.81s
     τr::Float32  = 0.0s
     A::Float32  = 0.052
@@ -59,6 +74,8 @@ CaModel
     F0::Float32 = 1.0
     η::Float32  = 0.0
     σ::Float32  = 0.0
+    n::Float32  = 1.0
+    c0::Float32 = 0.0
     dt::Float32 = 1ms
 end
 
@@ -141,20 +158,29 @@ function baseline_drift(n::Int, params::CaModel; rng=Random.GLOBAL_RNG)
 end
 
 """
-    fluorescence(c, B, A, g, σ; rng) -> Vector{Float64}
+    fluorescence(c, B, params; rng) -> Vector{Float32}
 
-Apply the MLspike observation equation
-`F = B * (1 + A * c / (1 + g * c)) + σ ε`, combining the saturating
-indicator nonlinearity with baseline and additive Gaussian measurement
-noise. Reduces to linear scaling when `g = 0`.
+Apply the observation equation combining the Hill-sigmoid indicator
+nonlinearity with baseline and additive Gaussian measurement noise:
+
+    F = B * (1 + A*(c0+c)^n/(1+g*(c0+c)^n) - A*c0^n/(1+g*c0^n)) + σ ε
+
+The subtracted rest term normalizes so that F(c=0) = B·(1+0) = B.
+Setting `n=1, c0=0` recovers the original Michaelis-Menten equation.
+Setting `n>1` introduces sigmoidal cooperativity; combining with `c0>0`
+places the resting operating point on the rising limb so that accumulated
+calcium amplifies the fluorescence response to subsequent spikes
+(history dependence, as in GCaMP6f; see Demas et al. 2021).
 """
 function fluorescence(c::T, B::T, params::CaModel; rng=Random.GLOBAL_RNG) where {T<:AbstractVector}
-    @unpack A, g, σ = params
-    n = length(c)
+    @unpack A, g, σ, n, c0 = params
+    nn = length(c)
     F = similar(c)
-    random_number = randn(rng, n)
-    @turbo for i in 1:n
-        nl = A * c[i] / (1 + g * c[i])
+    random_number = randn(rng, nn)
+    F_rest = A * c0^n / (1 + g * c0^n)
+    @inbounds for i in 1:nn
+        c_eff = c0 + c[i]
+        nl = A * c_eff^n / (1 + g * c_eff^n) - F_rest
         F[i] = B[i] * (1 + nl) + σ * random_number[i]
     end
     return F

@@ -2,94 +2,61 @@
 """
     CaPostProcess
 
-Parameters for the ΔF/F deconvolution and smoothing pipeline.
+Parameters for the full ΔF/F → deconvolution → smoothing pipeline.
 
 # Fields
-- `τ::Float32 = 2.0s`: calcium decay time constant used for deconvolution
-- `A::Float32 = 0.2`: ΔF/F amplitude per spike passed to [`deconvolve_df_f`](@ref)
+- `τ::Float32 = 2.0s`: calcium decay time constant for deconvolution
+- `A::Float32 = 1.0`: ΔF/F amplitude per spike; divides `(dF/dt + F/τ)` in [`deconvolve_df_f`](@ref). Set to 1 to match Sophie/Deneux convention.
 - `σnoise::Float32 = 0.1`: expected measurement noise standard deviation
 - `σsmooth::Float32 = 100ms`: Gaussian smoothing kernel width applied after deconvolution
+- `skewed::Symbol = :none`: smoothing kernel shape — `:none` (symmetric), `:right` (causal, past only), `:left` (anti-causal)
+- `baseline_window::Float32 = 3000ms`: running-median window for F0 estimation in [`delta_f_over_f`](@ref)
 
-See also [`calcium_postprocess`](@ref), [`deconvolve_df_f`](@ref).
+See also [`calcium_postprocess`](@ref), [`deconvolve_df_f`](@ref), [`delta_f_over_f`](@ref).
 """
 CaPostProcess
 
 @kwdef struct CaPostProcess
-    τ::Float32  = 2.0s
-    A::Float32 = 0.2
-    σnoise::Float32 = 0.1
-    σsmooth::Float32 = 100ms
+    τ::Float32              = 2.0s
+    A::Float32              = 1.0
+    σnoise::Float32         = 0.1
+    σsmooth::Float32        = 100ms
+    skewed::Symbol          = :none
+    baseline_window::Float32 = 3000f0
 end
 
 """
-    delta_f_over_f(t, F; q=0.08) -> (ΔF/F, t)
+    delta_f_over_f(t, F; baseline_window=3000f0, q=0.20f0) -> (ΔF/F, t)
 
-Compute ΔF/F (%) from a raw fluorescence trace, discarding the first 20 s
-as warmup. Baseline `F0` is the `q`-th quantile of the remaining signal.
+Compute ΔF/F from a raw fluorescence trace using a sliding-window baseline.
+
+Applies a causal running median over `baseline_window` ms, then takes the
+`q`-th quantile of that smoothed trajectory as a single scalar F0.
+This matches Sophie's MATLAB pipeline (fn_filt → prctile).
 
 # Arguments
-- `t`: time axis with physical units (seconds)
+- `t`: time axis in ms
 - `F`: raw fluorescence vector, same length as `t`
-- `q::Real=0.08`: quantile used to estimate baseline
+- `baseline_window`: running-median window in ms (default 3000 ms = 3 s)
+- `q`: quantile for F0 estimate (default 0.20 = 20th percentile)
 
 # Returns
-- `(ΔF/F, t_trimmed)`: percent ΔF/F as `Float32` and the trimmed time axis
+- `(ΔF/F, t)`: `Float32` ΔF/F and the original time axis
 
 See also [`calcium_postprocess`](@ref).
 """
-function delta_f_over_f(t::T, F::Vector{R}; heatup_time=10s) where {T<:AbstractVector, R<:Real}
-    heatup = findall(t .> heatup_time)
-    F0 = mean(F[heatup])
+function delta_f_over_f(t::T, F::Vector{R}; baseline_window=3000f0, q=0.20f0) where {T<:AbstractVector, R<:Real}
+    dt = t[2] - t[1]
+    w  = max(1, round(Int, baseline_window / dt))
+    baseline = [median(@view F[max(1, i - w + 1):i]) for i in eachindex(F)]
+    F0 = quantile(Float64.(baseline), Float64(q))
     return Float32.(@. (F - F0) / F0), t
 end
 
-function delta_f_over_f(t::T, Fs::Vector{Vector{R}}; heatup_time=10s) where {T<:AbstractVector, R<:Real}
-    tmap(x->delta_f_over_f(t, x; heatup_time)[1], Fs), t
+function delta_f_over_f(t::T, Fs::Vector{Vector{R}}; baseline_window=3000f0, q=0.20f0) where {T<:AbstractVector, R<:Real}
+    tmap(x -> delta_f_over_f(t, x; baseline_window, q)[1], Fs), t
 end
 
-
-"""
-    gaussian_smooth(xs, x, sigma) -> Vector
-
-Apply a normalized Gaussian kernel to signal `x` sampled on grid `xs`.
-Kernel half-width is `3σ` (truncated); boundary bins are renormalized by
-accumulated kernel weight so edge values are not biased toward zero.
-
-# Arguments
-- `xs`: sample-position grid (used only for its step size `xs[2]-xs[1]`)
-- `x`: signal to smooth, length `n`
-- `sigma`: Gaussian standard deviation in the same units as `xs`
-
-# Returns
-- smoothed signal, same length as `x`
-
-See also [`calcium_postprocess`](@ref), [`deconvolve_df_f`](@ref).
-"""
-function gaussian_smooth(xs::RT, x::T, σ::R) where {T<:AbstractVector, R<:Real, RT<:AbstractVector}
-    step_x = xs[2] - xs[1]
-    half = ceil(Int, 3σ/step_x) ## 3σ cutoff for the kernel                                                          
-    xs = -half:half                                                                         
-    kernel = exp.(-xs.^2 ./ (2σ^2))                                                     
-    kernel ./= sum(kernel)                                                                  
-    n = length(x) ## length of the input signal
-    out = similar(x) 
-    s = 0.0
-    w = 0.0
-    @inbounds for i in 1:n
-        s = 0.0
-        w = 0.0                                                                             
-        @fastmath for (j, k) in enumerate(kernel)
-            idx = i + (j - half - 1)
-            idx < 1 && continue
-            idx > n && continue
-            s += k * x[idx]
-            w += k                                                                      
-        end                                                                                 
-        out[i] = s / w
-    end
-    @assert length(out) == length(x)
-    return out
-end
 
 
 """
@@ -147,7 +114,7 @@ function calcium_postprocess(fluo::Vector{R}, r::T, params::CaPostProcess) where
     δT = r[2] - r[1]
     r = r[1]:δT:r[end]
     dec_exp = deconvolve_df_f(fluo, 1/δT, params.τ, params.A)
-    dec_exp = gaussian_smooth(r, dec_exp, params.σsmooth)
+    dec_exp = gaussian_smooth(r, dec_exp, params.σsmooth; skewed=params.skewed)
     return dec_exp
 end
 

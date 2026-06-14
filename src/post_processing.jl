@@ -9,7 +9,7 @@ Parameters for the full ΔF/F → deconvolution → smoothing pipeline.
 - `A::Float32 = 1.0`: ΔF/F amplitude per spike; divides `(dF/dt + F/τ)` in [`deconvolve_df_f`](@ref). Set to 1 to match Sophie/Deneux convention.
 - `σnoise::Float32 = 0.1`: expected measurement noise standard deviation
 - `σsmooth::Float32 = 100ms`: Gaussian smoothing kernel width applied after deconvolution
-- `skewed::Symbol = :none`: smoothing kernel shape — `:none` (symmetric), `:right` (causal, past only), `:left` (anti-causal)
+- `skewed::Symbol = :none`: smoothing kernel shape — `:none` (symmetric), `:left` (causal, past only), `:right` (anti-causal)
 - `baseline_window::Float32 = 3000ms`: running-median window for F0 estimation in [`delta_f_over_f`](@ref)
 
 See also [`calcium_postprocess`](@ref), [`deconvolve_df_f`](@ref), [`delta_f_over_f`](@ref).

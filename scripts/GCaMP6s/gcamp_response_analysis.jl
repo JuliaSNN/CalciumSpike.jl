@@ -23,7 +23,7 @@ All spikes placed at T_SPIKE (deterministic, tight jitter).
 function sim_traces(spike_counts::AbstractVector{Int}, params::CaModel)
     spikes = [fill(T_SPIKE, n) |> Vector{Float32} for n in spike_counts]
     Fs, t  = calcium_trace(spikes, SIM_SR, SIM_INTERVAL; params)
-    ΔFs, _ = delta_f_over_f(t, Fs; heatup_time = SIM_HEATUP)
+    ΔFs, _ = delta_f_over_f(t, Fs)
     return ΔFs, t
 end
 
@@ -49,7 +49,7 @@ function half_time_per_spike(n_spikes::Int; params::CaModel, sr = SIM_SR, interv
     map(1:5) do _
         spikes    = [Float32.(rand(Distributions.Normal(T_SPIKE, 10), n_spikes))]
         gcamp, t  = calcium_trace(spikes, sr, interval; params)
-        ΔF, t     = delta_f_over_f(t, gcamp; heatup_time = SIM_HEATUP)
+        ΔF, t     = delta_f_over_f(t, gcamp)
         half_decay_time(ΔF[1], t)
     end |> mean
 end

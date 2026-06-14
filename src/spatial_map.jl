@@ -21,7 +21,8 @@ Compute spatial activity maps for given neuron activity matrix and time interval
 - `recordings`: used to convert ms intervals to time indices
 """
 function compute_spatial_map(;activity, baseline_activity, entries, time_indices, neurons, points, kwargs...)
-    results  = Dict{Symbol, Array{Float32, 3}}()
+    pre_results  = Dict{Symbol, Array{Float32, 3}}()
+    results = Dict{Symbol, Array{Float32, 3}}()
     _m = mean(baseline_activity, dims = 2)[:, 1]
     _s = std(baseline_activity,  dims = 2)[:, 1]
     xs, ys = neuron_coords(points, neurons)
@@ -29,18 +30,20 @@ function compute_spatial_map(;activity, baseline_activity, entries, time_indices
     map(keys(entries) |> collect) do entry
         recording_keys = entries[entry]
         _activity = mean([activity[kk] for kk in recording_keys])
-        _activity = clamp.((_activity .- _m) ./ (_s .+ 0.001), -3, 3)
+        _activity = clamp.((_activity .- _m) ./ (_s), -10, 10)
         _activity[isnan.(_activity)] .= 0.0
-        results[entry], _, _ = SNNModels.spatial_activity(
+        pre_results[entry], _, _ = SNNModels.spatial_activity(
                 (xs, ys),
                 _activity[neurons, :];
                 kwargs...,
                 T = time_indices,
             )
     end
-    mean_act = mean(values(results))
-    for key in keys(results)
-        results[key] .-= mean_act
+    # return results
+    mean_act = mean([x[:,:,1:1] for x in values(pre_results)])
+    for key in keys(pre_results)
+        mean_act = pre_results[key][:,:,1:1] 
+        results[key] = pre_results[key][:,:,2:end] .- mean_act
     end
     return results
 end
@@ -69,7 +72,7 @@ function spatial_map_plot!(
     filename        = nothing,
     kwargs...,
 )
-    levels = range(-2, 2, 16)
+    levels = range(-1, 1, 16)
     n_keys = length(ordered_keys)
     n_cols = size(activity_dict[ordered_keys[1]], 3)
 
@@ -77,7 +80,7 @@ function spatial_map_plot!(
         result = activity_dict[key]
         for n in 1:n_cols
             ax = Axis(fig[k, n]; xlabel = "", ylabel = "")
-            r  = clamp.(result[:, :, n], -2, 2)
+            r  = result[:, :, n]
             contourf!(ax, x_range, y_range, r; levels, colormap = :balance)
             if k == n_keys
                 !isnothing(last_row_xticks) && (ax.xticks = last_row_xticks)

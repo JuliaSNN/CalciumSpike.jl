@@ -58,8 +58,6 @@ function noise_correction(activities::Array{Float32, 3}; n_group=5)
         for j = axes(activities, 1)
             activity_i = activities[i, :, :] |> x-> split_mean(x, n_group)
             activity_j = activities[j, :, :] |> x-> split_mean(x, n_group)
-            # activity_i = activity_i .- mean(activity_i, dims=1)
-            # activity_j = activity_j .- mean(activity_j, dims=1)
 
             R = size(activity_i, 2)
             ρ0 = sum(cor(activity_j, activity_i))/R^2

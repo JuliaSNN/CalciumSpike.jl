@@ -41,7 +41,7 @@ const CA_POST = CaPostProcess(
     τ       = 2f0s,
     A       = 0.2f0,
     σsmooth = 100f0ms,   # default; swept below
-    skewed  = :right,
+    skewed  = :left,
 )
 
 const SR         = 50Hz           # imaging sampling rate (0.05 samples/ms → dt=20ms)
@@ -103,7 +103,7 @@ sigmas_ms = [1, 2, 5, 10, 50, 100, 200, 500]
 
 pop_mean = map(sigmas_ms) do σ_ms
     @info "  σ = $(σ_ms) ms"
-    post = CaPostProcess(τ = CA_POST.τ, A = CA_POST.A, σsmooth = Float32(σ_ms) * ms)
+    post = CaPostProcess(τ = CA_POST.τ, A = CA_POST.A, σsmooth = Float32(σ_ms) * ms, skewed = CA_POST.skewed, baseline_window = CA_POST.baseline_window)
     dec  = calcium_postprocess(ΔFs, t_ms, post)  # Vector{Vector{Float32}}
     mat  = reduce(hcat, dec)                      # (n_timepoints × n_neurons)
     full = vec(mean(mat, dims = 2))

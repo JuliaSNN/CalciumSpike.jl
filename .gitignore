@@ -1,3 +1,6 @@
 docs/build
 *.svg
+*.png
+*.jld2
 .ipynb_checkpoints/
+.DS_Store

@@ -21,8 +21,8 @@ Compute spatial activity maps for given neuron activity matrix and time interval
 - `recordings`: used to convert ms intervals to time indices
 """
 function compute_spatial_map(;activity, baseline_activity, entries, time_indices, neurons, points, kwargs...)
-    pre_results  = Dict{Symbol, Array{Float32, 3}}()
     results = Dict{Symbol, Array{Float32, 3}}()
+    isempty(entries) && return results
     _m = mean(baseline_activity, dims = 2)[:, 1]
     _s = std(baseline_activity,  dims = 2)[:, 1]
     xs, ys = neuron_coords(points, neurons)
@@ -32,18 +32,16 @@ function compute_spatial_map(;activity, baseline_activity, entries, time_indices
         _activity = mean([activity[kk] for kk in recording_keys])
         _activity = clamp.((_activity .- _m) ./ (_s), -10, 10)
         _activity[isnan.(_activity)] .= 0.0
-        pre_results[entry], _, _ = SNNModels.spatial_activity(
+        results[entry], _, _ = SNNModels.spatial_activity(
                 (xs, ys),
                 _activity[neurons, :];
                 kwargs...,
                 T = time_indices,
             )
     end
-    # return results
-    mean_act = mean([x[:,:,1:1] for x in values(pre_results)])
-    for key in keys(pre_results)
-        mean_act = pre_results[key][:,:,1:1] 
-        results[key] = pre_results[key][:,:,2:end] .- mean_act
+    mean_act = mean(values(results))
+    for key in keys(results)
+        results[key] .-= mean_act
     end
     return results
 end
@@ -68,6 +66,7 @@ function spatial_map_plot!(
     y_axis_label    = "y",
     row_group_label = nothing,
     last_row_xticks = nothing,
+    colormap        = :balance,
     folder          = nothing,
     filename        = nothing,
     kwargs...,
@@ -81,7 +80,7 @@ function spatial_map_plot!(
         for n in 1:n_cols
             ax = Axis(fig[k, n]; xlabel = "", ylabel = "")
             r  = result[:, :, n]
-            contourf!(ax, x_range, y_range, r; levels, colormap = :balance)
+            contourf!(ax, x_range, y_range, r; levels, colormap)
             if k == n_keys
                 !isnothing(last_row_xticks) && (ax.xticks = last_row_xticks)
                 hideydecorations!(ax)

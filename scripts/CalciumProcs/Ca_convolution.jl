@@ -67,37 +67,6 @@ est = evaluate_MLspike(original.fluo, original.spikes, original.t) |> mean
 
 ##
 
-
 res.gcamp.dec[1] |> lines
 res.gcamp.dec[1]
 length(res.gcamp.r)
-
-
-res.gcamp.dec
-params_post = CaPostProcess(
-    τ = -1s,
-    A = -1,
-    σsmooth = 100ms,
-)
-dec_signal, r_dec = calcium_postprocess(signal, r_signal, params_post)
-##
-calcium_gen_params = (;
-    a = params.A,
-    tau = params.τ,
-    sigma = params.σ,
-    saturation = 0.1,
-    dt = 0.02,
-    drift_parameter = [1, 0.015],
-)
-generated_spikes = CalciumSpike.generate_spike_train(ntrial=1, T=100.0, rate=input_rate/Hz)
-
-SNNModels.ISI_CV2(generated_spikes)
-SNNModels.ISI_CV2(res.spikes)
-
-rr, calcium = CalciumSpike.spk_calcium(res.spikes,  MLSpike_params(; calcium_gen_params...))
-
-original = (;spikes= res.spikes, fluo = calcium, t= rr)
-evaluate_MLspike(original.fluo, original.spikes, original.t)
-
-
-lines(betas, isi)

@@ -1,7 +1,7 @@
 using Makie
 using UnPack
 """
-    plot_comparison(params, σ, input_rate) -> Figure
+    plot_comparison(params, input_rate, params_post=CaPostProcess()) -> Figure
 
 Run the double-exponential vs. BioPhysical model forward-model comparison via
 `run_comparison` and produce a four-panel figure:
@@ -15,13 +15,16 @@ module source tree and returns it.
 
 # Arguments
 - `params`: forward-model parameter struct passed to `run_comparison`
-- `σ`: measurement noise standard deviation
 - `input_rate`: ground-truth firing rate used to drive `run_comparison`
+- `params_post`: post-processing parameters for the deconvolution step
+  (default `CaPostProcess()`); `dec` fields are `nothing` if you pass `nothing`
+  here, which would break the deconvolved-activity panel below, so keep a
+  real `CaPostProcess` unless you customise the plotting to match
 
 See also [`plot_gCamp_and_deconvolution!`](@ref), [`plot_correlation_heatmaps`](@ref).
 """
-function plot_comparison(params, σ, input_rate)
-    res = run_comparison(params, σ, input_rate)
+function plot_comparison(params, input_rate, params_post=CaPostProcess())
+    res = run_comparison(params, input_rate, params_post)
     Parameters.@unpack double_exp, gcamp, fr, spikes = res
 
     fig = Figure(size=(900,800))

@@ -56,12 +56,11 @@ using DrWatson
 
 using SpikingNeuralNetworks
 using SNNModels
+using CalciumSpike
 using CairoMakie
 using ProgressBars
 
 @load_units
-
-include("CA_model.jl")
 
 # %% [markdown]
 # ## Numerical Implementation
@@ -132,8 +131,6 @@ base_params = CaModel(
 #
 
 # %%
-include("Ca_convolution.jl")
-
 params = CaModel(
     τ  = 2s,
     A  = .2,
@@ -142,13 +139,10 @@ params = CaModel(
     η  = 0.0,
     σ  = 0.1,
 )
-σ = 10ms
 input_rate = 5Hz
-run_comparison(params, σ, input_rate)
+plot_comparison(params, input_rate, CaPostProcess(σsmooth = 10ms))
 
 # %%
-include("Ca_convolution.jl")
-
 params = CaModel(
     τ  = 2s,
     A  = .2,
@@ -157,9 +151,8 @@ params = CaModel(
     η  = 0.0,
     σ  = 0.1,
 )
-σ = 100ms
 input_rate = 5Hz
-run_comparison(params, σ, input_rate)
+plot_comparison(params, input_rate, CaPostProcess(σsmooth = 100ms))
 
 # %% [markdown]
 # ## Analysis 1: Noise vs. Smoothing Trade-off
@@ -199,10 +192,10 @@ for g in [0.0001, 0.001, 0.01]
             σ_smooth = smooth_range[j] |> Float32
             correlations = ca_fr_correlation(
                     input_rate,
-                    params;
+                    params,
+                    CaPostProcess(σsmooth = σ_smooth);
                     sim_time = simulation_time,
                     sr = 50Hz,
-                    σ_smooth = σ_smooth
                 )
             # Average over realizations
             correlation_calcium[i, j] = correlations.calcium
@@ -312,10 +305,10 @@ for (i, g_val) in ProgressBar(enumerate(g_range_g_sigma))
         end
         correlations = ca_fr_correlation(
             firing_rate_fixed_g_sigma,
-            params;
+            params,
+            CaPostProcess(σsmooth = σ_smooth_fixed_g_sigma);
             sim_time = simulation_time,
             sr = 50Hz,
-            σ_smooth = σ_smooth_fixed_g_sigma
         )
         corr_calcium_g_sigma[i, j] = correlations.calcium
         corr_doubleexp_g_sigma[i, j] = correlations.double_exp
@@ -377,10 +370,10 @@ for (i, g_val) in ProgressBar(enumerate(g_range_g_rate))
         end
         correlations = ca_fr_correlation(
             rate,
-            params;
+            params,
+            CaPostProcess(σsmooth = σ_smooth_fixed_g_rate);
             sim_time = simulation_time,
             sr = 50Hz,
-            σ_smooth = σ_smooth_fixed_g_rate
         )
         corr_calcium_g_rate[i, j] = correlations.calcium
         corr_doubleexp_g_rate[i, j] = correlations.double_exp

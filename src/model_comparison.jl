@@ -9,10 +9,12 @@ then correlating each deconvolved signal with the ground-truth firing rate.
 
 # Arguments
 - `spike_rate`: target firing rate in Hz
-- `params::CaModel`: calcium forward-model parameters
+- `params_model::CaModel`: calcium forward-model parameters
+- `params_post::CaPostProcess`: post-processing parameters for the
+  deconvolution step (e.g. `CaPostProcess(σsmooth=100ms)` for the Gaussian
+  smoothing kernel width applied to deconvolved traces)
 - `sim_time=40s`: total simulation duration
 - `sr=50Hz`: calcium imaging sampling rate
-- `σ_smooth=100ms`: Gaussian smoothing kernel width for deconvolved traces
 - `n_samples=10`: number of independent trials to average over
 
 # Returns

@@ -4,11 +4,11 @@
 
 Two complementary constraints:
 
-**1. Half-decay time curve** — time from peak to half-peak as a function of spike count (9 points):
+**1. Half-decay time curve** — time from peak to half-peak as a function of spike count (8 points, `DATA_X`/`T_HALF_EMPIRICAL` in `gcamp6s_data.jl`):
 
-| APs | 1 | 2 | 3 | 5 | 10 | 20 | 30 | 50 | 100 |
-|-----|---|---|---|---|----|----|----|----|-----|
-| t½ (s) | 0.5 | 0.7 | 0.9 | 1.1 | 1.5 | 2.0 | 2.3 | 2.6 | 3.0 |
+| APs | 1 | 2 | 3 | 5 | 10 | 20 | 40 | 80 |
+|-----|---|---|---|---|----|----|----|----|
+| t½ (s) | 1.03 | 1.43 | 1.49 | 1.58 | 1.81 | 2.27 | 2.73 | 3.28 |
 
 **2. Transient waveforms** — digitized ΔF/F time courses for a 1 AP and 10 AP burst (21 time points each, −0.4 s to +3.0 s relative to spike onset).
 
@@ -47,7 +47,7 @@ Spikes are placed as an instantaneous burst at $t = 4$ s; the 30 s post-spike wi
 
 Three MSE terms summed with equal weight:
 
-$$\mathcal{L}_\text{half} = \frac{1}{9}\sum_{i=1}^{9}\left(\log \hat{t}_{1/2}^{(i)} - \log t_{1/2}^{(i)}\right)^2$$
+$$\mathcal{L}_\text{half} = \frac{1}{8}\sum_{i=1}^{8}\left(\log \hat{t}_{1/2}^{(i)} - \log t_{1/2}^{(i)}\right)^2$$
 
 $$\mathcal{L}_\text{1ap} = \frac{1}{J}\sum_{j=1}^{J}\left(\hat{F}_\text{norm}(t_j) - F^\text{emp}_\text{norm}(t_j)\right)^2$$
 

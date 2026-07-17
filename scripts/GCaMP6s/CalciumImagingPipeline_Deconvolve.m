@@ -72,7 +72,6 @@ end
 PropNeg = nanmean(PropNeg<0,1);
 %% Deconvolution and filtering single trials
 % Deconvolution equation : dV/dt + V.dt/tau = firing
-tau      =  2;  % s
 disp('Deconvolution')
 
 for CellNumber = 1:size(DeltaFOverF,1) % # of cells
@@ -81,9 +80,10 @@ for CellNumber = 1:size(DeltaFOverF,1) % # of cells
     temp = [diff(temp,1,2) 0]+[temp(:,1:end-1)  0]*dt/tau;
     % this line is from original JB code, but should probably be [diff(temp,1,2) 0]*tau/dt+[temp(:,1:end-1)  0];
 
-    % filter
+    % filter (gaussianfilter.m: reconstructed in this same folder — the
+    % original was lost, see gaussianfilter.m's docstring)
      FDeconv(CellNumber,:) = gaussianfilter(temp,1,1.5,1)'; % parameters from Deneux et al, 2017
-    
+
 end
 
 end

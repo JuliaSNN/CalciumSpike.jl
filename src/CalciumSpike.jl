@@ -9,9 +9,10 @@ Core exports: [`CaModel`](@ref), [`calcium_trace`](@ref) and lower-level
 primitives [`bin_spikes`](@ref), [`calcium_dynamics`](@ref),
 [`baseline_drift`](@ref), [`fluorescence`](@ref).
 
-MATLAB-backed functions (`activate_MLSpike`, `spike_estimate`, …) are loaded
-lazily via `Requires` when MATLAB.jl is present. Makie plotting helpers are
-similarly loaded on demand.
+MATLAB-backed functions (`activate_MLSpike`, `spike_estimate`, …) are
+implemented in the `CalciumSpikeMATLABExt` package extension, loaded
+automatically when MATLAB.jl is also loaded. Makie plotting helpers are
+loaded on demand via `Requires`.
 """
 module CalciumSpike
 
@@ -31,7 +32,6 @@ module CalciumSpike
     @load_units
 
     function __init__()
-        @require MATLAB = "10e44e05-a98a-55b3-a45b-ba969058deb6" include("MLSpike.jl")
         @require Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a" include("plots.jl")
     end
     include("Ca_model.jl")
@@ -39,5 +39,6 @@ module CalciumSpike
     include("model_comparison.jl")
     include("noise_correction.jl")
     include("spatial_map.jl")
+    include("MLSpike_api.jl")
 
 end # module CalciumSpike

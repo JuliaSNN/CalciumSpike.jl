@@ -89,17 +89,17 @@ function spatial_map_plot!(
                 hideydecorations!(ax)
             end
         end
-        Label(fig[k, n_cols, Right()], row_labels[k], rotation = -pi / 2, padding = (5, 5, 0, 0))
+        Label(fig[k, n_cols, Right()], row_labels[k], rotation = -pi / 2, padding = (25, 25, 0, 0))
         rowsize!(fig, k, Fixed(50))
     end
 
     if !isnothing(col_labels)
         for (n, lbl) in enumerate(col_labels)
-            Label(fig[1, n, Top()], lbl, padding = (0, 0, 5, 10))
+            Label(fig[0, n], lbl, padding = (0, 0, 15, 20))
         end
     end
-    Label(fig[n_keys + 1, 1:n_cols], x_axis_label)
-    Label(fig[1:n_keys, 1, Left()], y_axis_label, rotation = pi / 2, padding = (5, 5, 0, 0))
+    Label(fig[n_keys+1, 1:n_cols], x_axis_label, padding = (0, 0, 15, 15))
+    Label(fig[1:n_keys, 0], y_axis_label, rotation = pi / 2, padding = (15, 15, 0, 0))
     !isnothing(row_group_label) &&
         Label(fig[1:n_keys, n_cols + 1], row_group_label, rotation = -pi / 2)
     [colsize!(fig, f, Relative(1 / n_cols)) for f in 1:n_cols]

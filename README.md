@@ -16,9 +16,10 @@ directly.
 
 - MATLAB ≤ 2022 (for the MLSpike-backed functions; lazy-loaded via
   `Requires.jl`, so the rest of the package works without MATLAB installed)
-- `src/lib/spikes` ([MLspike](https://github.com/MLspike/spikes)) and
-  `src/lib/brick` ([brick](https://github.com/thomasdeneux/brick)) — vendored
-  MATLAB toolboxes, added to the MATLAB path by `activate_MLSpike()`
+- [MLspike](https://github.com/MLspike/spikes) (`spikes`) and
+  [brick](https://github.com/thomasdeneux/brick) MATLAB toolboxes, cloned into
+  one directory and added to the MATLAB path by `activate_MLSpike(path)`
+  (`path` defaults to `src/lib/` of a development clone)
 - Makie/CairoMakie for plotting (also lazy-loaded)
 
 ## Installation

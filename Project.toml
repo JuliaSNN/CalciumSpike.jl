@@ -1,6 +1,6 @@
 name = "CalciumSpike"
 uuid = "62725a0d-c079-4df9-bb14-4eacc1bfbdff"
-version = "2.0.0"
+version = "1.0.0"
 authors = ["Alessio <alessio.quaresima@pasteur.fr>"]
 
 [deps]

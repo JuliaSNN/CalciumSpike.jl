@@ -16,9 +16,7 @@ loaded on demand via `Requires`.
 """
 module CalciumSpike
 
-    using Logging
     using Requires
-    using DrWatson
 
     using Random
     using Statistics

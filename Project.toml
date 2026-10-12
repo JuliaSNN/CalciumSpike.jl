@@ -1,10 +1,9 @@
 name = "CalciumSpike"
 uuid = "62725a0d-c079-4df9-bb14-4eacc1bfbdff"
-version = "0.1.1"
+version = "1.0.0"
 authors = ["Alessio <alessio.quaresima@pasteur.fr>"]
 
 [deps]
-DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
@@ -24,7 +23,6 @@ MATLAB = "10e44e05-a98a-55b3-a45b-ba969058deb6"
 CalciumSpikeMATLABExt = "MATLAB"
 
 [compat]
-DrWatson = "2.19.1"
 Interpolations = "0.16.2"
 Logging = "1.11.0"
 LoopVectorization = "0.12.173"
@@ -33,7 +31,7 @@ Makie = "0.24.9"
 Parameters = "0.12, 0.13"
 Random = "1.11.0"
 Requires = "1.3.1"
-SNNModels = "1.7.2"
+SNNModels = "2"
 Statistics = "1.11.1"
 ThreadTools = "0.2.1"
 UnPack = "1.0.2"

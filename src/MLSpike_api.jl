@@ -13,7 +13,7 @@ path. Must be called once before any other MLSpike function.
 
 # Arguments
 - `path`: root directory containing `spikes/` and `brick/` subdirectories
-  (defaults to `src/lib/`)
+  (defaults to `src/lib/` of a development clone; clone the two toolboxes there or pass another directory)
 
 See also [`MLspike_estimate`](@ref), [`autocalibration`](@ref).
 """

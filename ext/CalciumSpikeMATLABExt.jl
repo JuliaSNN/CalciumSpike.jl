@@ -21,8 +21,11 @@ function CalciumSpike.activate_MLSpike(path = joinpath(pkgdir(CalciumSpike), "sr
     # spikes := https://github.com/MLspike/spikes
     # brick := https://github.com/thomasdeneux/brick
     spikes_path = joinpath(path, "spikes")
-    mat"addpath($spikes_path)"
     brick_path = joinpath(path, "brick")
+    for dir in (spikes_path, brick_path)
+        isdir(dir) || error("MLSpike library not found at $dir. Clone https://github.com/MLspike/spikes and https://github.com/thomasdeneux/brick into $path, or pass the directory that contains them as `path`.")
+    end
+    mat"addpath($spikes_path)"
     mat"addpath($brick_path)"
 end
 

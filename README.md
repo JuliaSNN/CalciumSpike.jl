@@ -44,6 +44,28 @@ directly.
   `plot_comparison`, `ca_fr_correlation`)
 - Spatial-map utilities for population-level analyses (`spatial_map.jl`)
 
+### Randomness and reproducibility of the forward model
+
+By default `calcium_trace` is random: the baseline drift (`η > 0`) and the
+measurement noise (`σ > 0`) come from the global RNG, so each call gives a new
+noise realisation (`Random.seed!` before the call makes it repeatable).
+
+To opt in to bit-for-bit reproducibility pass an integer `seed`:
+
+```julia
+Fs, t = calcium_trace(spikes, 50.0, (0.0, 30.0); params, seed = 42)
+```
+
+The call builds a local `Random.Xoshiro(42)` and uses it for all of its noise,
+so the same spikes, `params` and `seed` give identical output regardless of the
+global RNG state, earlier calls, or the number of threads. For a
+`Vector{Vector{Float32}}` input the neurons are processed serially from that one
+stream; within one seed every call with the same spike input gives the same
+noise realisation (common random numbers across perturbation conditions).
+`seed` and `rng` are mutually exclusive. `biophysical_calcium(...; seed)` seeds
+the calcium noise only, not the Poisson spike trains, and
+`generate_synthetic_data(...; seed)` seeds the synthetic data.
+
 Full API reference (Documenter.jl) lives in `docs/`; build it locally with
 `julia --project=docs/ docs/make.jl`.
 

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  test:
+    name: Julia ${{ matrix.julia }}, SNNModels ${{ matrix.snnmodels }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        julia: ['1.12']
+        # both SNNModels lines in the compat: 1.9 (used by SNN2AC_optim) and 2
+        snnmodels: ['1.9', '2']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia }}
+
+      - name: Setup cache
+        uses: julia-actions/cache@v2
+
+      - name: Install dependencies with SNNModels ${{ matrix.snnmodels }}
+        run: julia --project -e 'using Pkg; Pkg.add(name = "SNNModels", version = "${{ matrix.snnmodels }}"); Pkg.instantiate(); Pkg.status("SNNModels")'
+
+      - name: Run tests
+        run: julia --project -e 'using Pkg; Pkg.test()'

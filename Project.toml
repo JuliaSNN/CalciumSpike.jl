@@ -1,6 +1,6 @@
 name = "CalciumSpike"
 uuid = "62725a0d-c079-4df9-bb14-4eacc1bfbdff"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Alessio <alessio.quaresima@pasteur.fr>"]
 
 [deps]
@@ -37,3 +37,9 @@ SNNModels = "1.7.2"
 Statistics = "1.11.1"
 ThreadTools = "0.2.1"
 UnPack = "1.0.2"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

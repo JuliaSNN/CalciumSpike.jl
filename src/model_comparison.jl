@@ -127,7 +127,7 @@ function run_comparison(params_model::CaModel, input_rate::Real, params_post::Un
 end
 
 """
-    biophysical_calcium(params_model, input_rate, params_post; sim_time=40s, sr=50Hz, β=0, N=100) -> NamedTuple
+    biophysical_calcium(params_model, input_rate, params_post; sim_time=40s, sr=50Hz, β=0, N=100, seed=nothing) -> NamedTuple
 
 Simulate a population of `N` independent Poisson neurons, generate per-neuron
 calcium traces with the Deneux et al. 2016 forward model, and optionally
@@ -139,6 +139,7 @@ deconvolve each trace.
 - `params_post::CaPostProcess`: post-processing parameters (pass `nothing` to skip deconvolution)
 - `N=100`: population size
 - `β=0`: burstiness parameter for the inhomogeneous Poisson process
+- `seed=nothing`: opt-in seed for the calcium noise only. With an integer, each neuron's trace noise is seeded from a local stream (see [`calcium_trace`](@ref)), independent of thread count and global RNG. The Poisson spike trains come from the `SNNModels` simulation and are NOT seeded by this keyword.
 
 # Returns
 NamedTuple with fields:
@@ -149,7 +150,8 @@ NamedTuple with fields:
 
 See also [`run_comparison`](@ref), [`evaluate_deconvolution`](@ref).
 """
-function biophysical_calcium(params_model::CaModel, input_rate::Real, params_post::Union{CaPostProcess, Nothing} = nothing; sim_time=40s, sr=50Hz,  β=0, N=100)
+function biophysical_calcium(params_model::CaModel, input_rate::Real, params_post::Union{CaPostProcess, Nothing} = nothing; sim_time=40s, sr=50Hz,  β=0, N=100, seed=nothing)
+    seed === nothing || seed isa Integer || throw(ArgumentError("`seed` must be an Integer or nothing"))
     pop = Population(N=N,SNNModels.InhomogeneousPoissonParam(r0 = input_rate; β, τ=10ms))
     model = compose(;pop, silent=true)
     monitor!(pop, :fire)
@@ -168,8 +170,11 @@ function biophysical_calcium(params_model::CaModel, input_rate::Real, params_pos
     ts = Vector{Vector{Float64}}(undef, N)
     dec_corrs = Vector{Float64}(undef, N)
 
+    # one calcium-noise seed per neuron, drawn serially from a local stream, so seeded results do not depend on thread scheduling
+    neuron_seeds = seed === nothing ? fill(nothing, N) : rand(Random.Xoshiro(seed), UInt64, N)
+
     Threads.@threads     for n in 1:N
-        gcamps[n] = calcium_trace(spikes[n], sr, (interval[1], interval[end]), params=params_model)
+        gcamps[n] = calcium_trace(spikes[n], sr, (interval[1], interval[end]), params=params_model, seed=neuron_seeds[n])
         ΔF, r_mlspike = delta_f_over_f(r_fr, gcamps[n].F)
         signals[n] = ΔF
         Fs[n] = Float64.(gcamps[n].F)

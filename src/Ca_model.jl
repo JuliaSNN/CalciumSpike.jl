@@ -240,8 +240,20 @@ function fluorescence(c::T, B::T, params::CaModel; rng=Random.GLOBAL_RNG) where 
     return F
 end
 
+# Resolve the RNG used for all noise of one `calcium_trace` call.
+# `seed === nothing` keeps the historical behaviour (`rng`, default global RNG);
+# an integer `seed` builds a fresh local `Xoshiro`, independent of global state.
+function _noise_rng(rng, seed)
+    if seed === nothing
+        return rng === nothing ? Random.GLOBAL_RNG : rng
+    end
+    rng === nothing || throw(ArgumentError("pass either `rng` or `seed` to calcium_trace, not both"))
+    seed isa Integer || throw(ArgumentError("`seed` must be an Integer or nothing, got $(typeof(seed))"))
+    return Random.Xoshiro(seed)
+end
+
 """
-    calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interval; params=Ca_params, rng=Random.GLOBAL_RNG)
+    calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interval; params=Ca_params, rng=nothing, seed=nothing)
 
 Simulate a fluorescence trace from a spike train using the Deneux et al.
 2016 forward model (eq. 17). `interval = (t0, t1)` in seconds,
@@ -257,9 +269,26 @@ Pipeline:
 
 Returns a NamedTuple `(t, F, c, B)` with the time axis, fluorescence
 trace, normalized calcium, and baseline.
+
+# Randomness and reproducibility
+By default the noise (baseline drift when `η > 0`, measurement noise when
+`σ > 0`) is drawn from the global RNG (`rng = nothing` means
+`Random.GLOBAL_RNG`), so every call returns a fresh noise realisation and
+`Random.seed!` before the call makes it repeatable.
+
+Opt-in reproducibility: `seed::Integer` builds a fresh local
+`Random.Xoshiro(seed)` at the start of the call and uses it for all noise of
+that call. Identical `spiketimes`, `params`, `sampling_rate`, `interval` and
+`seed` then give bitwise-identical output, independent of the global RNG
+state, of anything run before, and of the number of threads. With `seed` the
+global RNG is not touched. `rng` (an `AbstractRNG` you manage yourself) and
+`seed` are mutually exclusive: passing both throws an `ArgumentError`.
+With `η = 0` and `σ = 0` no random numbers are drawn and the output is
+deterministic regardless.
 """
 function calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interval;
-                      params = Ca_params, rng = Random.GLOBAL_RNG)
+                      params = Ca_params, rng = nothing, seed = nothing)
+    rng = _noise_rng(rng, seed)
     dt = 1ms  ## dt for biophysical Calcium dynamics, finer than the output sampling rate to avoid aliasing
     binned = bin_spikes(spiketimes, dt, interval)
     c = calcium_dynamics(binned, params)
@@ -273,13 +302,13 @@ function calcium_trace(spiketimes::Vector{Float32}, sampling_rate::Real, interva
 end
 
 """
-    calcium_trace(spiketimes::Vector{Vector{Float32}}, sampling_rate::Real, interval; params=Ca_params, rng=Random.GLOBAL_RNG)
+    calcium_trace(spiketimes::Vector{Vector{Float32}}, sampling_rate::Real, interval; params=Ca_params, rng=nothing, seed=nothing)
 
-    Simulate a fluorescence trace from a vector of spike trains using the Deneux et al.
-    2016 forward model (eq. 17). `interval = (t0, t1)` in seconds, `sampling_rate` in Hz.
+Simulate fluorescence traces from a vector of spike trains using the Deneux et al.
+2016 forward model (eq. 17). `interval = (t0, t1)` in seconds, `sampling_rate` in Hz.
 `params` is a [`CaModel`](@ref) instance.
 
-Pipeline:
+Pipeline (per spike train):
 1. Bin spikes onto the `dt = 1/sampling_rate` grid.
 2. Integrate normalized calcium `c(t)` (exact single-exponential decay).
 3. Generate baseline drift `B(t)` (Brownian, or flat if `η = 0`).
@@ -287,13 +316,30 @@ Pipeline:
    where `p` (indicator-bound fraction) is computed internally by
    [`indicator_dynamics`](@ref) from `c`.
 
-Returns a tuple of vectors `(Fs, t)` with the fluorescence traces and time axis.
+Returns a tuple `(Fs, t)` with the vector of fluorescence traces and the time axis.
+
+# Randomness and reproducibility
+Default: noise comes from the global RNG (`rng = nothing`), fresh at every call.
+
+Opt-in: `seed::Integer` builds one local `Random.Xoshiro(seed)` at the start of
+the call. The neurons are processed serially, in order, and each draws its
+noise from that single stream, so the result does not depend on the number of
+threads, on the global RNG state, or on earlier calls. Neuron `k` receives the
+same noise realisation in every call with the same `seed` and the same spike
+input, so perturbed conditions (e.g. an altered spike train for one neuron)
+share common random numbers: noise draws are identical wherever the spike
+inputs and their order agree. Note that the draws are consumed in neuron order, so
+changing the number of neurons or their order changes the noise of the later
+ones, and `η = 0`/`σ = 0` change how many numbers are consumed per neuron.
+`rng` and `seed` are mutually exclusive (`ArgumentError`).
 """
 function calcium_trace(spiketimes::Vector{Vector{Float32}}, sampling_rate::Real, interval;
-        params = Ca_params, rng = Random.GLOBAL_RNG)
+        params = Ca_params, rng = nothing, seed = nothing)
+    rng = _noise_rng(rng, seed)
     dt = 1ms  ## dt for biophysical Calcium dynamics, finer than the output sampling rate to avoid aliasing
     t = 0:dt:interval[end]
     tsr = t[1]:1/sampling_rate:t[end]
+    # serial map on purpose: a single RNG stream drawn in neuron order keeps seeded runs independent of thread count
     Fs = map(spiketimes) do spiketime
         binned = bin_spikes(spiketime, dt, interval)
         c = calcium_dynamics(binned, params)

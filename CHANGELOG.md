@@ -16,6 +16,9 @@ New opt-in feature; no change for code that does not use it.
 - First test suite (`test/runtests.jl`) covering the seed behaviour.
 - `CaModel` is unchanged: the seed is a keyword of the calls, not a model parameter, so positional constructors and saved
   parameters keep working.
+- Compat widened to `SNNModels = "1.7.2, 2"`: the package does not use any SNNModels 2 API (the `2` bound of 1.0.0 was a
+  version bump only), so one `main` serves projects on the SNNModels 1.9 line and on 2.x.
+- First test suite (`test/runtests.jl`) and GitHub Actions CI testing against SNNModels 1.9 and 2; TagBot workflow.
 
 ## 1.0.0
 
